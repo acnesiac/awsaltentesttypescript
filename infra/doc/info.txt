@@ -1,0 +1,53 @@
+terraform version
+aws --version
+
+terraform init
+terraform console
+terraform providers
+
+terraform init
+terraform plan
+terraform apply
+terraform show
+terraform destroy
+
+terraform init
+terraform plan -out out.terraform
+terraform apply out.terraform
+terraform show
+terraform destroy
+
+ssh-keygen -f mykey
+ssh -i "mykey" ubuntu@18.197.163.93
+
+terraform init && terraform plan -out out.terraform
+terraform apply -auto-approve out.terraform
+terraform destroy -auto-approve
+
+aws s3api get-bucket-notification-configuration --bucket aws-s3-bucket-35
+aws s3api get-bucket-notification-configuration --bucket aws-s3-bucket-simple-backend-assignment-dev
+
+export TF_LOG="TRACE"
+
+TRACE: the most elaborate verbosity, as it shows every step taken by Terraform and produces enormous outputs with internal logs.
+DEBUG: describes what happens internally in a more concise way compared to TRACE.
+ERROR: shows errors that prevent Terraform from continuing.
+WARN: logs warnings, which may indicate misconfiguration or mistakes, but are not critical to execution.
+INFO: shows general, high-level messages about the execution process
+
+if aws s3 ls --region $AWS_REGION | grep $BUCKET_NAME > /dev/null; then
+  BUCKET_EXISTS=true
+else
+  BUCKET_EXISTS=false
+fi
+
+# Initialize Terraform for the correct workspace
+terraform init -force-copy -backend-config=backend.hcl
+
+if [ $BUCKET_EXISTS = true ]; then
+  terraform workspace select existing-bucket || terraform workspace new existing-bucket
+else
+  terraform workspace select new-bucket || terraform workspace new new-bucket
+fi
+
+terraform workspace show

@@ -1,0 +1,40 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket",
+        "ses:*"
+      ],
+      "Resource": [
+        "${bucket_arn}",
+        "${bucket_arn}/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::774145483743:user/*"
+      },
+      "Action": [
+        "s3:PutObject",
+        "ses:*"
+      ],
+      "Resource": [
+        "${bucket_arn}",
+        "${bucket_arn}/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "s3.amazonaws.com"
+      },
+      "Action": "lambda:InvokeFunction",
+      "Resource": "${lambda_arn}"
+    }
+  ]
+}

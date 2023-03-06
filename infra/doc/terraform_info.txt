@@ -1,0 +1,469 @@
+-- https://faun.pub/building-s3-event-triggers-for-aws-lambda-using-terraform-1d61a05b4c97
+
+-- s3 bucket
+resource "aws_s3_bucket" "my_bucket" {
+  bucket = "my-bucket-name"
+  acl    = "private"
+
+  tags = {
+    Environment = "Dev"
+  }
+}
+
+
+
+-- role
+resource "aws_iam_role" "my_lambda_role" {
+  name = "my_lambda_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch" {
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "s3" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "sqs" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+
+
+-- lambda
+provider "aws" {
+  region = "us-west-2"
+}
+
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/lambda"
+  output_path = "${path.module}/lambda.zip"
+}
+
+resource "aws_lambda_function" "example_lambda" {
+  function_name    = "example_lambda"
+  role             = aws_iam_role.example_lambda.arn
+  handler          = "com.example.lambda.ExampleLambda::handleRequest"
+  runtime          = "java11"
+  filename         = data.archive_file.lambda_zip.output_path
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+}
+
+resource "aws_iam_role" "example_lambda" {
+  name = "example_lambda"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+
+
+-- lambda with trigger and role
+resource "aws_iam_role" "my_lambda_role" {
+  name = "my_lambda_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch" {
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "s3" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "sqs" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_lambda_function" "my_lambda_function" {
+  filename         = "my_lambda_function.zip"
+  function_name    = "my_lambda_function"
+  role             = aws_iam_role.my_lambda_role.arn
+  handler          = "com.aws.assignment.S3ToSQS::handleRequest"
+  source_code_hash = filebase64sha256("my_lambda_function.zip")
+  runtime          = "java11"
+
+  environment {
+    variables = {
+      QUEUE_URL = "https://sqs.eu-central-1.amazonaws.com/774145483743/parse-document-queue"
+    }
+  }
+
+  timeout = 300
+
+  event_source_mapping {
+    event_source_arn = aws_s3_bucket.my_bucket.arn
+    batch_size       = 10
+    starting_position = "LATEST"
+  }
+}
+
+resource "aws_s3_bucket" "my_bucket" {
+  bucket = "my-bucket"
+  acl    = "private"
+}
+
+
+-- sns topic
+-- standard
+resource "aws_sns_topic" "example" {
+  name = "example_topic"
+}
+
+
+--fifo
+resource "aws_sns_topic" "my_sns_topic" {
+  name = "my-sns-topic.fifo"
+  fifo_topic = true
+}
+
+
+-- sqs
+-- standard
+resource "aws_sqs_queue" "example" {
+  name                      = "example"
+  delay_seconds             = 90
+  maximum_message_size      = 2048
+  message_retention_seconds = 86400
+  receive_wait_time_seconds = 10
+  visibility_timeout_seconds = 300
+}
+
+-- fifo
+resource "aws_sqs_queue" "example" {
+  name                      = "example.fifo"
+  fifo_queue                = true
+  delay_seconds             = 90
+  maximum_message_size      = 2048
+  message_retention_seconds = 86400
+  receive_wait_time_seconds = 10
+  visibility_timeout_seconds = 300
+}
+
+-- sqs type fifo suscribed to the sns fifo topic
+resource "aws_sns_topic" "example" {
+  name = "example"
+  fifo_topic = true
+}
+
+resource "aws_sqs_queue" "example" {
+  name = "example.fifo"
+  fifo_queue = true
+  content_based_deduplication = true
+}
+
+resource "aws_sns_topic_subscription" "example" {
+  topic_arn = aws_sns_topic.example.arn
+  protocol = "sqs"
+  endpoint = aws_sqs_queue.example.arn
+  endpoint_auto_confirms = true
+}
+
+
+--Dynamo table
+
+resource "aws_dynamodb_table" "cars_brands" {
+  name         = "cars_brands"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "id"
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+
+  attribute {
+    name = "brand"
+    type = "S"
+  }
+
+  tags = {
+    Environment = "Production"
+  }
+
+  region = "us-west-2"
+}
+
+-- lambda with role assigned and triggerd by sqs
+data "archive_file" "lambda_function" {
+  type        = "zip"
+   source_file = "${path.module}/aws-simple-back-end-assignment-1.0-SNAPSHOT-aws.jar"
+  output_path = "${path.module}/my-lambda-function.zip"
+}
+
+resource "aws_lambda_function" "my_lambda_function" {
+  filename      = "${data.archive_file.lambda_function.output_path}"
+  function_name    = "my-lambda-function"
+  handler          = "com.aws.assignment.SQSProcessor::handleRequest"
+  runtime          = "java8"
+  role             = aws_iam_role.my_lambda_role.arn
+  timeout          = 10
+  memory_size      = 256
+  #source_code_hash = data.archive_file.lambda_function.output_base64sha256
+  source_code_hash = filebase64sha256("${data.archive_file.lambda_function.output_path}")
+
+  environment {
+    variables = {
+      QUEUE_URL = aws_sqs_queue.example.fifo_queue_url
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_lambda_event_source_mapping" "my_event_source_mapping" {
+  event_source_arn = aws_sqs_queue.example.fifo_queue_arn
+  function_name    = aws_lambda_function.my_lambda_function.function_name
+  batch_size       = 10
+  starting_position = "LATEST"
+}
+
+resource "aws_lambda_permission" "allow_sqs" {
+  statement_id  = "AllowExecutionFromSQS"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.my_lambda_function.function_name
+  principal     = "sqs.amazonaws.com"
+  source_arn    = aws_sqs_queue.example.fifo_queue_arn
+}
+
+resource "aws_sqs_queue" "example" {
+  name                      = "example.fifo"
+  fifo_queue                = true
+  content_based_deduplication = false
+}
+
+resource "aws_iam_role" "my_lambda_role" {
+  name = "my_lambda_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch" {
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "s3" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "sqs" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+  role       = aws_iam_role.my_lambda_role.name
+}
+
+
+-- test for lambda
+locals {
+  test_message_file = "test_message.json"
+  test_message      = file("${path.module}/${local.test_message_file}")
+}
+
+resource "local_file" "test_message" {
+  content  = local.test_message
+  filename = local.test_message_file
+}
+
+resource "aws_lambda_function_invocation" "test" {
+  function_name = aws_lambda_function.example.function_name
+  input         = local.test_message
+
+  depends_on = [
+    aws_sqs_queue.example,
+  ]
+}
+
+
+-- cloud formation
+resource "aws_cloudformation_stack" "my_stack" {
+  name = "my-stack"
+  template_body = <<EOF
+{
+  "Resources": {
+    "my-s3-bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": "my-bucket-name"
+      }
+    },
+    "my-sqs-fifo-queue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "my-queue-name.fifo",
+        "FifoQueue": true,
+        "ContentBasedDeduplication": true
+      }
+    },
+    "my-sns-fifo-topic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "DisplayName": "my-topic-name",
+        "TopicName": "my-topic-name.fifo",
+        "FifoTopic": true
+      }
+    },
+    "my-dynamodb-table": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "id",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "brand",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "id",
+            "KeyType": "HASH"
+          }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "TableName": "cars_brands"
+      }
+    },
+    "my-lambda-function-role": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "cloudwatch-full-access",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "cloudwatch:*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "s3-full-access",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "sqs-full-access",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "dynamodb-full-access",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+}
+

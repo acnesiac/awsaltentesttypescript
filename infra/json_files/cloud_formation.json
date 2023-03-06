@@ -1,0 +1,260 @@
+{
+    "Resources": {
+        "myLambdaRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": "myLambdaRolePolicy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents"
+                                    ],
+                                    "Resource": "arn:aws:logs:*:*:*"
+                                },
+	                        {
+	                            "Effect": "Allow",
+	                            "Action": [
+	                                "s3:ListBucket",
+	                                "s3:GetObject",
+	                                "s3:PutObject"
+	                            ],
+	                            "Resource": [
+	                                "arn:aws:s3:::my-aws-s3-bucket-${APP}-${ENV}",
+	                                "arn:aws:s3:::my-aws-s3-bucket-${APP}-${ENV}/*"
+	                            ]
+	                        },
+	                        {
+	                            "Effect": "Allow",
+	                            "Action": [
+	                                "sqs:SendMessage",
+	                                "sqs:ReceiveMessage"
+	                            ],
+	                            "Resource": "arn:aws:sqs:eu-central-1:774145483743:my-sqs-simple-backend-assignment-dev.fifo"
+	                        },
+	                        {
+	                            "Effect": "Allow",
+	                            "Action": [
+	                                "dynamodb:PutItem",
+	                                "dynamodb:GetItem",
+	                                "dynamodb:Query"
+	                            ],
+	                            "Resource": "arn:aws:dynamodb:eu-central-1:774145483743:table/my-cars-brands-simple-backend-assignment-dev"
+	                        },
+	                        {
+	                            "Effect": "Allow",
+	                            "Action": [
+	                                "ses:SendEmail"
+	                            ],
+	                            "Resource": "*"
+	                        }				
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "mySqs": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+                "QueueName": "my-sqs-simple-backend-assignment-dev.fifo",
+                "FifoQueue": true,
+                "ContentBasedDeduplication": true
+            }
+        },
+        "myBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "BucketName": "my-aws-s3-bucket-${APP}-${ENV}",
+                "NotificationConfiguration": {
+                    "LambdaConfigurations": [
+                        {
+                            "Event": "s3:ObjectCreated:*",
+                            "Function": {
+                                "Fn::Sub": "arn:aws:lambda:eu-central-1:774145483743:function:my-lambda-function-parse-each-line-simple-backend-assignment-dev",
+                                "Variables": {
+                                    "lambdaFunctionName": { "Ref": "myLambdaFunction01" }
+                                }
+                            }
+                        }
+                    ]
+                },
+                "AccessControl": "private",
+                "LifecycleConfiguration": {
+                    "Rules": [
+                        {
+                            "ExpirationInDays": 30,
+                            "ID": "delete-after-30-days",
+                            "Status": "Enabled"
+                        }
+                    ]
+                },
+                "VersioningConfiguration": {
+                    "Status": "Enabled"
+                },
+                "ServerSideEncryptionConfiguration": {
+                    "Rules": [
+                        {
+                            "ApplyServerSideEncryptionByDefault": {
+                                "SSEAlgorithm": "AES256"
+                            }
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "${APP}-${ENV}"
+                    }
+                ]
+            },
+            "DeletionPolicy": "Delete",
+            "UpdateReplacePolicy": "Delete"
+        },
+        "myLambdaFunction01": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Code": {
+                    "S3Bucket": "my-aws-s3-bucket-simple-backend-assignment-dev",
+                    "S3Key": "../../target/aws-simple-back-end-assignment-1.0-SNAPSHOT-aws.jar"
+                },
+                "FunctionName": "my-lambda-function-parse-each-line-simple-backend-assignment-dev",
+                "Handler": "com.aws.assignment.S3ToSQS::handleRequest",
+                "Role": { "Fn::GetAtt": [ "myLambdaRole", "Arn" ] },
+                "Runtime": "java8",
+                "Timeout": 10,
+                "MemorySize": 256
+            }
+        },
+        "myLambdaPermission01": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "Action": "lambda:InvokeFunction",
+                "FunctionName": { "Fn::GetAtt": [ "myLambdaFunction01", "Arn" ] },
+                "Principal": "s3.amazonaws.com",
+                "SourceArn": { "Fn::GetAtt": [ "myBucket", "Arn" ] }
+            },
+            "DependsOn": ["myLambdaFunction01"]
+        },
+        "myLambdaFunction02": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Code": {
+                    "S3Bucket": "my-aws-s3-bucket-simple-backend-assignment-dev",
+                    "S3Key": "../../target/aws-simple-back-end-assignment-1.0-SNAPSHOT-aws.jar"
+                },
+                "Handler": "com.aws.assignment.SQSProcessor::handleRequest",
+                "MemorySize": 256,
+                "Role": {
+                    "Fn::GetAtt": [
+                        "myLambdaRole",
+                        "Arn"
+                    ]
+                },
+                "Runtime": "java8",
+                "Timeout": 10,
+                "Environment": {
+                    "Variables": {
+                        "QUEUE_URL": {
+                            "Ref": "mySqs"
+                        }
+                    }
+                },
+                "FunctionName": "my-lambda-function-save-dynamo-${APP}-${ENV}"
+            }
+        },
+        "myLambdaPermission02": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "Action": "lambda:InvokeFunction",
+                "FunctionName": { "Fn::GetAtt": [ "myLambdaFunction02", "Arn" ] },
+                "Principal": "sqs.amazonaws.com",
+                "SourceArn": {
+                    "Fn::GetAtt": [
+                        "mySqs",
+                        "Arn"
+                    ]
+                }
+            },
+            "DependsOn": ["myLambdaFunction02"]
+        },
+        "mySNSTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "DisplayName": "my-sns-topic-${APP}-${ENV}",
+                "FifoTopic": true
+            }
+        },
+        "mySNSTopicSubscription": {
+            "Type": "AWS::SNS::Subscription",
+            "Properties": {
+                "Protocol": "sqs",
+                "TopicArn": { "Ref": "mySNSTopic" },
+                "Endpoint": { "Fn::GetAtt": [ "mySqs", "Arn" ] },
+                "EndpointAutoConfirms": true
+            }
+        },
+        "myDynamoDBTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "BillingMode": "PAY_PER_REQUEST",
+                "AttributeDefinitions": [
+                    { "AttributeName": "id", "AttributeType": "S" },
+                    { "AttributeName": "brand", "AttributeType": "S" }
+                ],
+                "KeySchema": [
+                    { "AttributeName": "id", "KeyType": "HASH" }
+                ],
+                "GlobalSecondaryIndexes": [
+                    {
+                        "IndexName": "brand-index",
+                        "KeySchema": [
+                            { "AttributeName": "brand", "KeyType": "HASH" }
+                        ],
+                        "Projection": {
+                            "ProjectionType": "ALL"
+                        }
+                    }
+                ],
+                "TableName": "my-cars-brands-simple-backend-assignment-dev",
+                "Tags": [
+                    { "Key": "Environment", "Value": "${APP}-${ENV}" }
+                ]
+            }
+        },
+        "myLambdaEventSourceMapping": {
+            "Type": "AWS::Lambda::EventSourceMapping",
+            "Properties": {
+                "EventSourceArn": {
+                    "Fn::GetAtt": [
+                        "mySqs",
+                        "Arn"
+                    ]
+                },
+                "FunctionName": {
+                    "Ref": "myLambdaFunction02"
+                },
+                "BatchSize": 10
+            }
+        }
+    }
+}
+

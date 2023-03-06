@@ -1,0 +1,42 @@
+{
+  "name": "aws-simple-backend-assignment-typescript",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/app.js",
+  "scripts": {
+    "lint": "tslint --project tsconfig.json",
+    "pretest": "npm run lint",
+    "test": "mocha -r ts-node/register test/**/*.spec.ts",
+    "pre:build": "npm cit",
+    "export": "npm run build && npm prune --production && rm -f dist/aws-simple-backend-assignment-typescript.zip && zip -q -r dist/aws-simple-backend-assignment-typescript.zip node_modules dist && npm ci",
+    "build": "npm run pre:build && tsc",
+    "start": "node ./app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-lambda": "^1.0.7",
+    "moment": "^2.24.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.19",
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.7",
+    "@types/moment": "^2.13.0",
+    "@types/node": "^11.15.54",
+    "@types/sinon": "^7.0.6",
+    "@types/sinon-chai": "^3.2.2",
+    "aws-sdk": "^2.1328.0",
+    "aws-sdk-mock": "^5.8.0",
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0",
+    "sinon": "^7.2.3",
+    "sinon-chai": "^3.3.0",
+    "ts-node": "^8.0.2",
+    "tslint": "^5.12.1",
+    "tslint-config-standard": "^8.0.1",
+    "tslint-microsoft-contrib": "^6.0.0",
+    "typescript": "^3.3.3"
+  }
+}

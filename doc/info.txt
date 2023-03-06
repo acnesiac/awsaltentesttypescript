@@ -1,0 +1,114 @@
+c:\python38\python.exe -m pip install --upgrade pip
+pip3 install awscli --upgrade --user
+-- if any lib conflict
+-- pip3 uninstall awsebcli
+aws --version
+
+or 
+
+-- Linux
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+./aws/install
+rm -rf aws/ awscliv2.zip
+
+
+Create an S3 bucket and configure it to trigger a Lambda function when a new file is uploaded. Use the AWS SDK for Java or Node.js to access the S3 bucket and process the file content.
+
+Parse the file content and extract the vehicle brands. Use regular expressions or a text processing library like Apache Commons to split the content into lines and extract the brand names.
+
+Post each brand name to an SQS queue using the AWS SDK for Java or Node.js. Configure the queue to trigger another Lambda function to process the messages.
+
+Create a DynamoDB table to store the brands and their quantities. Use the AWS SDK for Java or Node.js to insert or update the records in the table based on the messages received from the SQS queue.
+
+Use AWS CloudFormation or AWS CDK to create the infrastructure and resources needed for the project, including the S3 bucket, the SQS queue, the Lambda functions, and the DynamoDB table.
+
+Implement security best practices such as IAM roles, policies, and encryption to protect the data and resources from unauthorized access or attacks.
+
+Log transactions and errors to CloudWatch to monitor the system performance and troubleshoot issues.
+
+Write unit and integration tests using frameworks like JUnit, Mockito, or Mocha to ensure the code is working correctly and efficiently.
+
+Provide a detailed README file with instructions on how to deploy and use the system, including the architecture, design decisions, and test coverage.
+
+nvm list
+nvm use 16.13.2
+Now using node v16.13.2 (64-bit)
+
+npm init --yes
+npm install --save-dev typescript
+npx tsc -v
+npx ts-node -v
+npx ts-node
+npm install express @types/express ts-node --save-dev
+
+-- Zip up the compiled JavaScript files and any dependencies.
+
+zip -r aws-simple-backend-assignment-typescript.zip *.js node_modules/
+
+-- Upload the ZIP file to an S3 bucket.
+
+aws s3 cp mylambda.zip s3://mybucket/
+
+-- Create a Lambda function using the uploaded ZIP file.
+
+aws lambda create-function \
+  --function-name mylambda \
+  --runtime nodejs14.x \
+  --role arn:aws:iam::123456789012:role/lambda-role \
+  --handler index.handler \
+  --code S3Bucket=mybucket,S3Key=mylambda.zip
+
+Replace mylambda with the name of your Lambda function, nodejs14.x with the appropriate runtime for your function, 
+arn:aws:iam::123456789012:role/lambda-role with the ARN of your IAM role, and index.handler with the name of your 
+handler function.
+
+The --code option specifies the S3 bucket and key where the ZIP file is located.
+
+Test your Lambda function.
+
+aws lambda invoke \
+  --function-name mylambda \
+  --payload '{ "key": "value" }' \
+  outfile.txt
+
+Replace mylambda with the name of your Lambda function, and '{ "key": "value" }' with the input payload for your function.
+
+
+
+tsc
+tsc src/app.ts
+-- npm add --save-dev esbuild
+npm install
+npm ci && npm run build && npm run export
+npm start
+npm test
+
+npx tslint-to-eslint-config --config .eslintrc.json
+npm install --save-dev eslint@6 eslint-plugin-standard@4 eslint-plugin-promise@4 eslint-plugin-import@2 eslint-plugin-node@9 @typescript-eslint/eslint-plugin@2 eslint-config-standard-with-typescript
+
+aws lambda create-function --function-name serverless-express-ts --runtime nodejs12.x --handler dist/app.handler --role arn:aws:iam::<ACCOUNT_ID>:role/<ROLE_NAME> --zip-file fileb://dist/app.zip
+aws apigateway create-rest-api --name "Serverless Express TS"
+aws apigateway create-resource --rest-api-id <API_ID> --parent-id <ROOT_RESOURCE_ID> --path-part "{proxy+}"
+aws apigateway put-method --rest-api-id <API_ID> --resource-id <RESOURCE_ID> --http-method ANY --authorization-type NONE
+aws apigateway put-integration --rest-api-id <API_ID> --resource-id <RESOURCE_ID> --http-method ANY --type AWS --integration-http-method ANY --uri arn:aws:apigateway:<REGION>:lambda:path/2015-03-31/functions/arn:aws:lambda:<REGION>:<ACCOUNT_ID>:function:serverless-express-ts/invocations
+aws apigateway create-deployment --rest-api-id <API_ID> --stage-name prod
+aws lambda create-function \
+    --function-name my-express-app \
+    --runtime nodejs14.x \
+    --role <ROLE_ARN> \
+    --handler index.handler \
+    --zip-file fileb://path/to/deployment.zip
+aws lambda update-function-code \
+    --function-name my-express-app \
+    --zip-file fileb://path/to/deployment.zip
+aws lambda invoke \
+    --function-name my-express-app \
+    --payload '{"httpMethod": "GET", "path": "/"}' \
+    --log-type Tail \
+    response.json
+aws logs filter-log-events \
+    --log-group-name /aws/lambda/my-express-app \
+    --start-time <START_TIME> \
+    --end-time <END_TIME>
+	

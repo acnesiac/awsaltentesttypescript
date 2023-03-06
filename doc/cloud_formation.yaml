@@ -1,0 +1,108 @@
+Resources:
+  S3ToSQSFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/S3ToSQS.handler
+      Runtime: nodejs14.x
+      CodeUri: ./
+      MemorySize: 256
+      Timeout: 60
+      Environment:
+        Variables:
+          AWS_ACCOUNT_ID: !Ref AWS::AccountId
+          AWS_REGION: !Ref AWS::Region
+          APP: !Ref AppName
+          ENV: !Ref EnvironmentName
+      Events:
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket: !Ref S3BucketName
+            Events:
+              - 's3:ObjectCreated:*'
+
+  SQSProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/SQSProcessor.handler
+      Runtime: nodejs14.x
+      CodeUri: ./
+      MemorySize: 256
+      Timeout: 60
+      Environment:
+        Variables:
+          AWS_ACCOUNT_ID: !Ref AWS::AccountId
+          AWS_REGION: !Ref AWS::Region
+          APP: !Ref AppName
+          ENV: !Ref EnvironmentName
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SQSQueue.Arn
+
+  S3UploaderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/S3Uploader.handler
+      Runtime: nodejs14.x
+      CodeUri: ./
+      MemorySize: 256
+      Timeout: 60
+      Environment:
+        Variables:
+          BUCKET: !Ref S3BucketName
+      Events:
+        HTTPEvent:
+          Type: Api
+          Properties:
+            Path: /s3-upload
+            Method: post
+
+  SQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'sqs-${AppName}-${EnvironmentName}.fifo'
+      FifoQueue: true
+      ContentBasedDeduplication: true
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+
+  APIGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref EnvironmentName
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: !Ref AWS::StackName
+        paths:
+          /s3-upload:
+            post:
+              consumes:
+                - multipart/form-data
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'OK'
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:s3:path/${S3BucketName}/${KEY_NAME}'
+                passthroughBehavior: when_no_templates
+                requestTemplates:
+                  multipart/form-data: !Sub |
+                    #set($filename = $input.path('$').match('filename="(.*)\"
+
+        outputs:
+          S3BucketName:
+            Value: !Ref S3Bucket
+          SQSQueueURL:
+            Value: !GetAtt SQSQueue.Arn
+          SQSQueueARN:
+            Value: !GetAtt SQSQueue.Arn
+
